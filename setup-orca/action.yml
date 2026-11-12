@@ -1,0 +1,71 @@
+name: Set up Orca
+description: >
+  Installs a release of Orca for a plugin's smoke test on a Linux runner: the given version, the
+  newest release, or the oldest that a plugin's engines.orca accepts. The extracted AppImage comes
+  from the cache when it holds that release, and xvfb is installed when the runner lacks it.
+inputs:
+  version:
+    description: An Orca release such as 1.4.254; takes precedence over channel
+    required: false
+  channel:
+    description: latest (the newest Orca release) or minimum (the floor of engines.orca in plugin-manifest)
+    required: false
+  plugin-manifest:
+    description: The plugin's orca-plugin.json, which channel minimum reads
+    required: false
+outputs:
+  version:
+    description: The installed Orca release
+    value: ${{ steps.resolve.outputs.version }}
+  app:
+    description: The extracted Orca, to pass as ORCA_APP
+    value: ${{ steps.resolve.outputs.app }}
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        CHANNEL: ${{ inputs.channel }}
+        MANIFEST: ${{ inputs.plugin-manifest }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        if [[ "$RUNNER_OS" != Linux ]]; then
+          echo "::error::setup-orca installs Orca's Linux AppImage and runs on Linux runners only"
+          exit 1
+        fi
+        if [[ -n "$VERSION" ]]; then
+          version=$VERSION
+        elif [[ "$CHANNEL" == minimum ]]; then
+          version=$(node -p 'require(process.argv[1]).engines.orca.match(/\d+\.\d+\.\d+/)?.[0] ?? ""' "$(realpath "$MANIFEST")")
+        elif [[ "$CHANNEL" == latest ]]; then
+          version=$(gh release view --repo stablyai/orca --json tagName --jq '.tagName | ltrimstr("v")')
+        else
+          echo "::error::setup-orca needs a version, or channel latest or minimum"
+          exit 1
+        fi
+        version=${version#v}
+        if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::No Orca version: '$version'"
+          exit 1
+        fi
+        echo "Orca ${CHANNEL:-pinned}: $version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "app=$RUNNER_TEMP/orca/squashfs-root" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      id: cache
+      with:
+        path: ${{ runner.temp }}/orca
+        key: orca-${{ runner.os }}-${{ runner.arch }}-${{ steps.resolve.outputs.version }}
+
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        VERSION: ${{ steps.resolve.outputs.version }}
+      run: node "$GITHUB_ACTION_PATH/../scripts/install-orca.mjs" "$VERSION" "$RUNNER_TEMP/orca"
+
+    - shell: bash
+      run: command -v xvfb-run > /dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }

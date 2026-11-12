@@ -1,0 +1,67 @@
+name: Image
+
+# Builds the image ghcr.io/miragon/orca:<version> of one Orca release for linux/amd64 and
+# linux/arm64 and pushes it.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The Orca release to build the image of, such as 1.4.254
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  image:
+    name: image / ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - env:
+          REQUESTED: ${{ inputs.version }}
+          ARCH: ${{ matrix.arch }}
+          TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=${REQUESTED#v}
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::No Orca version: '$version'"; exit 1; }
+          image="ghcr.io/miragon/orca:$version-$ARCH"
+          docker build --build-arg ORCA_VERSION="$version" --file image/Containerfile --tag "$image" .
+          docker run --rm "$image" sh -c 'xvfb-run -a "$ORCA_APP/resources/bin/orca-ide" --version' | grep -F "$version"
+          echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker push "$image"
+
+  manifest:
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - env:
+          REQUESTED: ${{ inputs.version }}
+          TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/miragon/orca:${REQUESTED#v}"
+          echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create --tag "$image" "$image-amd64" "$image-arm64"

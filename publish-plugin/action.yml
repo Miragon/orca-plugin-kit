@@ -1,0 +1,59 @@
+name: Publish Orca plugins
+description: >
+  Publishes the built plugins of one source release into Miragon/orca-plugins and lists them in its
+  catalog, through two pull requests the release-please app squash-merges once validate passes:
+  first the bytes in plugins/, then the catalog. The rules come from Miragon/orca-plugins at main,
+  checked with the Orca release it pins in .orca-version. Run it once per release from a source
+  repository's release job, with the release-please app's token. A failed publish closes its pull
+  request; run the job again to retry.
+inputs:
+  token:
+    description: An installation token of the release-please app with contents:write and pull-requests:write on Miragon/orca-plugins
+    required: true
+  plugins-dir:
+    description: >
+      A folder in the caller's workspace with one subfolder per plugin, each holding the built
+      plugin/ and a release.json with the release tag and changelog ({"tag": "...", "changelog": "..."})
+    required: true
+  source-repo:
+    description: The repository the bytes come from, such as Miragon/modeler-suite
+    required: true
+  source-ref:
+    description: The commit the bytes were built from
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: Miragon/orca-plugins
+        ref: main
+        token: ${{ inputs.token }}
+        path: .orca-plugins
+        fetch-depth: 0
+
+    - id: orca
+      shell: bash
+      run: |
+        set -euo pipefail
+        version=$(tr -d '[:space:]' < .orca-plugins/.orca-version)
+        node "$GITHUB_ACTION_PATH/../scripts/install-orca.mjs" "$version" "$RUNNER_TEMP/orca-$version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "app=$RUNNER_TEMP/orca-$version/squashfs-root" >> "$GITHUB_OUTPUT"
+
+    - shell: bash
+      working-directory: .orca-plugins
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ORCA_APP: ${{ steps.orca.outputs.app }}
+        ORCA_VERSION: ${{ steps.orca.outputs.version }}
+        PLUGINS_DIR: ${{ github.workspace }}/${{ inputs.plugins-dir }}
+        SOURCE_REPO: ${{ inputs.source-repo }}
+        SOURCE_REF: ${{ inputs.source-ref }}
+        WORKFLOW_RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+      run: >
+        node scripts/publish-plugin.mjs
+        --plugins-dir "$PLUGINS_DIR"
+        --source-repo "$SOURCE_REPO"
+        --source-ref "$SOURCE_REF"
