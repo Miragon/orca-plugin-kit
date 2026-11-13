@@ -1,8 +1,14 @@
 name: Image
 
-# Builds the image ghcr.io/miragon/orca:<version> of one Orca release for linux/amd64 and
-# linux/arm64 and pushes it.
+# Builds the image ghcr.io/miragon/orca of one Orca release from the newest kit release, for
+# linux/amd64 and linux/arm64, and tags it <orca>-<kit> and <orca>; the newest Orca release also
+# gets latest. Every week it builds the newest Orca release when it has no image yet, a kit release
+# that changes the image itself rebuilds the newest, and a dispatch builds the release it names.
 on:
+  schedule:
+    - cron: "17 4 * * 1"
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       version:
@@ -13,13 +19,78 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: image
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash
 
+env:
+  IMAGE: ghcr.io/miragon/orca
+
 jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      kit-tag: ${{ steps.plan.outputs.kit-tag }}
+      kit-version: ${{ steps.plan.outputs.kit-version }}
+      newest: ${{ steps.plan.outputs.newest }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REQUESTED: ${{ inputs.version }}
+          RELEASED_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          kit_tag=${RELEASED_TAG:-$(gh release view --json tagName --jq .tagName)}
+          newest=$(gh release view --repo stablyai/orca --json tagName --jq '.tagName | ltrimstr("v")')
+
+          image_definition_changed() {
+            local previous_tag
+            previous_tag=$(gh release list --exclude-drafts --limit 10 --json tagName \
+              | jq -r --arg kit_tag "$kit_tag" '[.[].tagName | select(. != $kit_tag)][0] // empty')
+            [[ -z "$previous_tag" ]] && return 0
+            gh api "repos/$GH_REPO/compare/$previous_tag...$kit_tag" --jq '.files[].filename' \
+              | grep -Eq '^(images/orca/|scripts/install-orca\.mjs$)'
+          }
+
+          case "$EVENT" in
+            workflow_dispatch)
+              version=${REQUESTED#v}
+              [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::No Orca version: '$version'"; exit 1; }
+              ;;
+            release)
+              version=""
+              image_definition_changed && version=$newest
+              ;;
+            schedule)
+              version=""
+              docker manifest inspect "$IMAGE:$newest" > /dev/null 2>&1 || version=$newest
+              ;;
+          esac
+
+          echo "Kit $kit_tag, newest Orca $newest, building: ${version:-nothing}"
+          {
+            echo "kit-tag=$kit_tag"
+            echo "kit-version=${kit_tag#v}"
+            echo "newest=$newest"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+
   image:
     name: image / ${{ matrix.arch }}
+    needs: plan
+    if: needs.plan.outputs.version != ''
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     permissions:
@@ -35,22 +106,23 @@ jobs:
             runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.kit-tag }}
       - env:
-          REQUESTED: ${{ inputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          KIT_VERSION: ${{ needs.plan.outputs.kit-version }}
           ARCH: ${{ matrix.arch }}
           TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version=${REQUESTED#v}
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::No Orca version: '$version'"; exit 1; }
-          image="ghcr.io/miragon/orca:$version-$ARCH"
-          docker build --build-arg ORCA_VERSION="$version" --file images/orca/Containerfile --tag "$image" .
-          docker run --rm "$image" sh -c 'xvfb-run -a "$ORCA_APP/resources/bin/orca-ide" --version' | grep -F "$version"
+          image="$IMAGE:$VERSION-$KIT_VERSION-$ARCH"
+          docker build --build-arg ORCA_VERSION="$VERSION" --file images/orca/Containerfile --tag "$image" .
+          docker run --rm "$image" sh -c 'xvfb-run -a "$ORCA_APP/resources/bin/orca-ide" --version' | grep -F "$VERSION"
           echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker push "$image"
 
   manifest:
-    needs: image
+    needs: [plan, image]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -58,10 +130,14 @@ jobs:
       packages: write
     steps:
       - env:
-          REQUESTED: ${{ inputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          KIT_VERSION: ${{ needs.plan.outputs.kit-version }}
+          NEWEST: ${{ needs.plan.outputs.newest }}
           TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          image="ghcr.io/miragon/orca:${REQUESTED#v}"
+          build="$IMAGE:$VERSION-$KIT_VERSION"
+          tags=(--tag "$build" --tag "$IMAGE:$VERSION")
+          [[ "$VERSION" == "$NEWEST" ]] && tags+=(--tag "$IMAGE:latest")
           echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          docker buildx imagetools create --tag "$image" "$image-amd64" "$image-arm64"
+          docker buildx imagetools create "${tags[@]}" "$build-amd64" "$build-arm64"

@@ -33,10 +33,18 @@ runners, starts each Orca under xvfb, and builds the image of the newest Orca re
 
 ## Images
 
-[`image.yml`](.github/workflows/image.yml) builds and pushes `ghcr.io/miragon/orca:<version>` for
-linux/amd64 and linux/arm64. Run it by hand with the Orca release you need. The tag names the Orca
-release only: a change of the recipe replaces the image of a release when it is built again, so
-the kit's version does not cover the image; consumers who need one build pin its digest.
+[`image.yml`](.github/workflows/image.yml) builds `ghcr.io/miragon/orca` of one Orca release for
+linux/amd64 and linux/arm64 from the newest kit release, and pushes it as
+`<orca version>-<kit version>` and `<orca version>`; the newest Orca release also moves `latest`.
+It runs
+
+- every Monday, for the newest Orca release when it has no image yet,
+- on a kit release that changes `images/orca/` or `scripts/install-orca.mjs`, for the newest Orca
+  release, so `latest` gets the changed image,
+- by hand with one Orca release, to build any other.
+
+The workflow's `GITHUB_TOKEN` needs write access to the package: in the package settings,
+**Manage Actions access** grants `orca-plugin-kit` the Write role.
 
 ## Versioning
 
