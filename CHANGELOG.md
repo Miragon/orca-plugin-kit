@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/Miragon/orca-plugin-kit/compare/v1.0.0...v2.0.0) (2026-11-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* group actions under actions/ and the image under images/orca/ ([#6](https://github.com/Miragon/orca-plugin-kit/issues/6))
+
+### Features
+
+* group actions under actions/ and the image under images/orca/ ([#6](https://github.com/Miragon/orca-plugin-kit/issues/6)) ([e79f511](https://github.com/Miragon/orca-plugin-kit/commit/e79f5119a8af3b95835dee2697828c2c19cf9dd5)), closes [#5](https://github.com/Miragon/orca-plugin-kit/issues/5)
+
 ## 1.0.0 (2026-11-12)
 
 
