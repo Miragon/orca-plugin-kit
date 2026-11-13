@@ -83,8 +83,9 @@ updates:
       interval: "weekly"
 ```
 
-A new major version means changed inputs or outputs. An image tag follows its Orca release and is
-rebuilt when the recipe changes; pin its digest to keep one build.
+A new major version means changed inputs or outputs. The image of the newest Orca release is built
+every week: `latest` follows it, `ghcr.io/miragon/orca:<orca version>` the last build of that
+release, and `<orca version>-<kit version>` such as `1.4.257-1.1.0` keeps one build.
 
 ## Help and feedback
 
