@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/Miragon/orca-plugin-kit/compare/v2.0.0...v2.1.0) (2026-11-13)
+
+
+### Features
+
+* build the image of the newest Orca release weekly and when the image changes ([#4](https://github.com/Miragon/orca-plugin-kit/issues/4)) ([a1c5932](https://github.com/Miragon/orca-plugin-kit/commit/a1c59324c8030f01ce87bbde6149bb672f48fd00)), closes [#3](https://github.com/Miragon/orca-plugin-kit/issues/3)
+
 ## [2.0.0](https://github.com/Miragon/orca-plugin-kit/compare/v1.0.0...v2.0.0) (2026-11-13)
 
 
