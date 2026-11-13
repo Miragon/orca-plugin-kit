@@ -4,8 +4,7 @@ updates:
   - package-ecosystem: "github-actions"
     directories:
       - "/"
-      - "/setup-orca"
-      - "/publish-plugin"
+      - "/actions/*"
     schedule:
       interval: "weekly"
     commit-message:
@@ -21,7 +20,8 @@ updates:
   # The image's Node base. A new Node major changes the image for every consumer, so it is a
   # breaking change of this kit and is left for a human.
   - package-ecosystem: "docker"
-    directory: "/image"
+    directories:
+      - "/images/*"
     schedule:
       interval: "weekly"
     commit-message:

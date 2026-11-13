@@ -37,7 +37,7 @@ runs:
       run: |
         set -euo pipefail
         version=$(tr -d '[:space:]' < .orca-plugins/.orca-version)
-        node "$GITHUB_ACTION_PATH/../scripts/install-orca.mjs" "$version" "$RUNNER_TEMP/orca-$version"
+        node "$GITHUB_ACTION_PATH/../../scripts/install-orca.mjs" "$version" "$RUNNER_TEMP/orca-$version"
         echo "version=$version" >> "$GITHUB_OUTPUT"
         echo "app=$RUNNER_TEMP/orca-$version/squashfs-root" >> "$GITHUB_OUTPUT"
 

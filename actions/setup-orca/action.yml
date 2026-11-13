@@ -65,7 +65,7 @@ runs:
       shell: bash
       env:
         VERSION: ${{ steps.resolve.outputs.version }}
-      run: node "$GITHUB_ACTION_PATH/../scripts/install-orca.mjs" "$VERSION" "$RUNNER_TEMP/orca"
+      run: node "$GITHUB_ACTION_PATH/../../scripts/install-orca.mjs" "$VERSION" "$RUNNER_TEMP/orca"
 
     - shell: bash
       run: command -v xvfb-run > /dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }
