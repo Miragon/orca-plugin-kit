@@ -16,8 +16,8 @@ uses all of it.
 
 | Part                                                                                      | What it does                                                                                        | Where it runs    |
 | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------- |
-| [`setup-orca`](setup-orca/action.yml)                                                     | Installs an Orca release and xvfb, and returns the folder your test starts Orca from                | Linux runners    |
-| [`publish-plugin`](publish-plugin/action.yml)                                             | Publishes the built plugins of one release into the catalog, checked by the catalog's rules         | Linux runners    |
+| [`setup-orca`](actions/setup-orca/action.yml)                                             | Installs an Orca release and xvfb, and returns the folder your test starts Orca from                | Linux runners    |
+| [`publish-plugin`](actions/publish-plugin/action.yml)                                     | Publishes the built plugins of one release into the catalog, checked by the catalog's rules         | Linux runners    |
 | [`ghcr.io/miragon/orca`](https://github.com/orgs/Miragon/packages/container/package/orca) | Node 22 on Debian with Orca under `/opt/orca` and xvfb, tagged by Orca release, for amd64 and arm64 | Podman or Docker |
 
 ## Test a plugin in Orca
@@ -28,7 +28,7 @@ release your plugin's `engines.orca` accepts, read from `plugin-manifest`. Your 
 
 ```yaml
 - id: orca
-  uses: Miragon/orca-plugin-kit/setup-orca@<sha> # v1.0.0
+  uses: Miragon/orca-plugin-kit/actions/setup-orca@<sha> # v2.0.0
   with:
     channel: minimum
     plugin-manifest: apps/orca/orca-plugin.json
@@ -60,7 +60,7 @@ release, with a token of Miragon's release-please app:
     private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
     owner: Miragon
     repositories: orca-plugins
-- uses: Miragon/orca-plugin-kit/publish-plugin@<sha> # v1.0.0
+- uses: Miragon/orca-plugin-kit/actions/publish-plugin@<sha> # v2.0.0
   with:
     token: ${{ steps.app.outputs.token }}
     plugins-dir: orca-plugins

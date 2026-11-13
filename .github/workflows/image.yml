@@ -44,7 +44,7 @@ jobs:
           version=${REQUESTED#v}
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::No Orca version: '$version'"; exit 1; }
           image="ghcr.io/miragon/orca:$version-$ARCH"
-          docker build --build-arg ORCA_VERSION="$version" --file image/Containerfile --tag "$image" .
+          docker build --build-arg ORCA_VERSION="$version" --file images/orca/Containerfile --tag "$image" .
           docker run --rm "$image" sh -c 'xvfb-run -a "$ORCA_APP/resources/bin/orca-ide" --version' | grep -F "$version"
           echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker push "$image"

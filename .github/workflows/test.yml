@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: orca
-        uses: ./setup-orca
+        uses: ./actions/setup-orca
         with:
           channel: ${{ matrix.channel }}
           plugin-manifest: test/fixtures/orca-plugin.json
@@ -45,5 +45,5 @@ jobs:
         run: |
           set -euo pipefail
           version=$(gh release view --repo stablyai/orca --json tagName --jq '.tagName | ltrimstr("v")')
-          docker build --build-arg ORCA_VERSION="$version" --file image/Containerfile --tag orca:test .
+          docker build --build-arg ORCA_VERSION="$version" --file images/orca/Containerfile --tag orca:test .
           docker run --rm orca:test sh -c 'xvfb-run -a "$ORCA_APP/resources/bin/orca-ide" --version' | grep -F "$version"
