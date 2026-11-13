@@ -16,4 +16,4 @@ RUN node /tmp/install/install-orca.mjs "$ORCA_VERSION" /opt/orca && rm -rf /tmp/
 
 ENV ORCA_APP=/opt/orca/squashfs-root
 LABEL org.opencontainers.image.source=https://github.com/Miragon/orca-plugin-kit
-LABEL org.opencontainers.image.description="Node 22 on Debian bookworm with Orca under /opt/orca and what it needs to run under xvfb-run"
+LABEL org.opencontainers.image.description="Node 26 on Debian bookworm with Orca under /opt/orca and what it needs to run under xvfb-run"
