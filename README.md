@@ -16,9 +16,9 @@ uses all of it.
 
 | Part                                                                                      | What it does                                                                                        | Where it runs    |
 | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------- |
-| [`setup-orca`](actions/setup-orca/action.yml)                                             | Installs an Orca release and xvfb, and returns the folder your test starts Orca from                | Linux runners    |
-| [`publish-plugin`](actions/publish-plugin/action.yml)                                     | Publishes the built plugins of one release into the catalog, checked by the catalog's rules         | Linux runners    |
-| [`ghcr.io/miragon/orca`](https://github.com/orgs/Miragon/packages/container/package/orca) | Node 22 on Debian with Orca under `/opt/orca` and xvfb, tagged by Orca release, for amd64 and arm64 | Podman or Docker |
+| [`setup-orca`](actions/setup-orca/action.yml)                                             | Installs an Orca release and xvfb, and returns the folder your test starts Orca from                | Ubuntu runners   |
+| [`publish-plugin`](actions/publish-plugin/action.yml)                                     | Publishes the built plugins of one release into the catalog, checked by the catalog's rules         | Ubuntu runners   |
+| [`ghcr.io/miragon/orca`](https://github.com/orgs/Miragon/packages/container/package/orca) | Node 26 on Debian with Orca under `/opt/orca` and xvfb, tagged by Orca release, for amd64 and arm64 | Podman or Docker |
 
 ## Test a plugin in Orca
 
@@ -38,10 +38,10 @@ release your plugin's `engines.orca` accepts, read from `plugin-manifest`. Your 
 ```
 
 On your machine or for an agent, run the same test in the image, where `ORCA_APP` is already set and
-no Orca window takes the focus:
+no Orca window takes the focus. Use `latest` or the Orca release your plugin needs:
 
 ```sh
-podman run --rm -v "$PWD:/repo" -w /repo ghcr.io/miragon/orca:1.4.254 \
+podman run --rm -v "$PWD:/repo" -v /repo/node_modules -w /repo ghcr.io/miragon/orca:latest \
   sh -c 'npm ci && xvfb-run -a npm run test:orca'
 ```
 
@@ -50,7 +50,8 @@ podman run --rm -v "$PWD:/repo" -w /repo ghcr.io/miragon/orca:1.4.254 \
 Your repository must first be
 [listed as a source in the catalog](https://github.com/Miragon/orca-plugins/blob/main/CONTRIBUTING.md#adding-a-source-repository),
 which also describes the folder `plugins-dir` points to. Then call `publish-plugin` once per
-release, with a token of Miragon's release-please app:
+release, with every plugin of the release in that folder and a token of Miragon's release-please app.
+If a publish fails, it closes its pull request in the catalog; run the job again:
 
 ```yaml
 - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -70,8 +71,8 @@ release, with a token of Miragon's release-please app:
 
 ## Stay up to date
 
-Pin the commit of a [release](https://github.com/Miragon/orca-plugin-kit/releases) with its version
-as a comment, as above, and let Dependabot move the pin to each new release:
+Pin a [release](https://github.com/Miragon/orca-plugin-kit/releases) as above, and let Dependabot
+move the pin to each new one:
 
 ```yaml
 # .github/dependabot.yml
@@ -83,9 +84,14 @@ updates:
       interval: "weekly"
 ```
 
-A new major version means changed inputs or outputs. The image of the newest Orca release is built
-every week: `latest` follows it, `ghcr.io/miragon/orca:<orca version>` the last build of that
-release, and `<orca version>-<kit version>` such as `1.4.257-1.1.0` keeps one build.
+A new major version means changed inputs or outputs. Every Monday the newest Orca release gets an
+image if it has none, and it is built again when the image itself changes:
+
+| Tag                                                     | Points to                             |
+| ------------------------------------------------------- | ------------------------------------- |
+| `latest`                                                | The newest Orca release with an image |
+| `<orca version>`, such as `1.4.257`                     | The last build of that Orca release   |
+| `<orca version>-<kit version>`, such as `1.4.257-2.0.0` | One build, which never changes        |
 
 ## Help and feedback
 
